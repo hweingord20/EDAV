@@ -1,0 +1,185 @@
+---
+title: "EDAV Problem Set 1 Fall 2024"
+execute:
+  echo: true
+format:
+  html:
+    fig-width: 6
+    fig-height: 4
+    embed-resources: true
+---
+
+### IMPORTANT NOTES FOR ALL QUESTIONS
+
+Obtain all data using the the `get_education_data()` function from the **educationdata** package in R, a wrapper to the [Urban Institute’s Education Data Portal API](https://educationdata.urban.org/documentation/index.html#how_to_use)
+
+See "Assignment Guidelines" under Pages in CourseWorks for instructions that apply to all assignments. (The guidelines will grow as the semester progresses so check back for each new assignment.)
+
+### 1. Common Core of Data
+
+Data: Common Core of Data (CCD) from the National Center for Education Statistics
+
+Documentation: [https://educationdata.urban.org/documentation/schools.html](https://educationdata.urban.org/documentation/schools.html)
+
+a) Get data for the school with NCES ID 341728004966. 
+```{r}
+install.packages("educationdata")
+library(educationdata)
+```
+```{r}
+data <- get_education_data(level = 'schools',
+                           source = 'ccd',
+                           topic = 'directory',
+                           filters = list(ncessch='341728004966'))
+```
+```{r}
+head(data)
+
+```
+b) Display the following as code output (that is don't look up this information elsewhere and list it manually):
+
+* the number of years for which you have data
+* lowest and highest grades offered in 2005
+* the name of the school in 2018
+
+```{r}
+a=seq(summary(factor(data$year)))
+print("The total number of years is ")
+print(length(a))
+```
+```{r}
+df <- get_education_data(level = 'schools',
+                           source = 'ccd',
+                           topic = 'directory',
+                           filters = list(ncessch='341728004966', year = 2005))
+```
+```{r}
+print('the lowest grade offered in 2005 is')
+print(df$lowest_grade_offered)
+print('the highest grade offered in 2005 is')
+print(df$highest_grade_offered)
+```
+```{r}
+
+value <- data['1', 'year']
+value
+
+```
+c) Get all grade 1 enrollment data for 2022.
+
+d) Display the following as code output:
+
+* Number of schools
+* Number of local education agencies
+* Mean number of first grade (grade 1) students per school (remove missing values but indicate that you are doing so and how many you removed)
+
+### 2. Total College Expenses
+
+For this question we will consider total expenses, that is, costs associated with college attendance in the United States besides tuition. 
+
+Data: Integrated Postsecondary Education Data System (IPEDS) from the National Center for Education Statistics
+
+Documentation: [https://educationdata.urban.org/documentation/colleges.html](https://educationdata.urban.org/documentation/colleges.html)
+
+a) Get "Room, board, and other" data academic year programs for all schools for the most recent year available.
+
+Change all of the `NAs` in the `room_board` column to 0. 
+
+Create a new column, `total_expenses` which combines the cost of books/supplies, room and board, and other expenses.
+
+* Display the five number summary for `total_expenses`.
+
+b) Create a histogram of the `total_expenses` column. What do you observe? What binwidth do you think works best to display this data?
+
+c) Why do you think the distribution of `total_expenses` has the shape that it does? Hint: experiment by faceting on other variables in the dataset. What did discover? Include any relevant graphs.
+
+### 3. In State vs. Out of State
+
+For this question we'll compare in-state and out of state tuition for undergraduate students, ONLY at schools where there actually is a difference between the two. 
+
+Data: Integrated Postsecondary Education Data System (IPEDS) from the National Center for Education Statistics
+
+Documentation: [https://educationdata.urban.org/documentation/colleges.html](https://educationdata.urban.org/documentation/colleges.html)
+
+a) Get tuition and fees data for all schools for the most recent year for which data is available.
+```{r}
+# first gathering the data
+data2 <- get_education_data(level = "college-university",
+    source = "ipeds",
+    topic = "academic-year-tuition",
+    filter = list(year=2021))
+
+head(data2)
+```
+Transform the data as follows:
+
+Keep rows for undergraduate tuition only.
+Keep rows for "In state" and "Out of state" tuition only (i.e. remove "In district" rows.) 
+```{r}
+# keep only undergraduate tuition
+data2 <- data2[data2$level_of_study ==1,]
+# remove "in district" rows
+data2 <- data2[data2$tuition_type !=2,]
+head(data2)
+```
+
+
+Select the following columns: `unitid`, `tuition_type` and `tuition_fees_ft`
+
+```{r}
+#select columns
+data2 <- data2[c('unitid', 'tuition_type', 'tuition_fees_ft')]
+head(data2)
+```
+
+Remove all rows for which "In State" and "Out of state" tuition (`tuition_fees_ft`) are the same. Hint: use `pivot_wider()` to create two columns "in_state" and "out_of_state", remove rows in which those columns are equal, then `pivot_longer()` to return to the original format. You may want to practice with a single value of `unitid` to get comfortable with these functions. 
+
+* Display the first six rows of your data.
+
+```{r}
+library(tidyverse)
+#first widen data and rename columns
+data2_wide <- pivot_wider(data2, names_from = tuition_type, values_from = tuition_fees_ft, values_fill=0)
+names(data2_wide) <- c('unitid', 'in_state', 'out_of_state')
+
+# remove rows where in state and out of state tuition are the same 
+data2_wide<-data2_wide[data2_wide$in_state != data2_wide$out_of_state, ]
+
+#return data back to original data frame
+data2_final <- pivot_longer(data2_wide, cols = c("in_state", "out_of_state"), names_to = c("tuition_type") )
+names(data2_final) <- c('unitid', 'tuition_type', 'tuition_fees_ft')
+head(data2_final)
+```
+
+b) Create boxplots to compare in state and out of state tuition.
+
+c) Add `geom_jitter()` to the boxplots, adjusting parameters as appropriate. What new trends become visible?
+
+c) Create ridgeline density plots that compare the in-state and out of state tuitions for undergraduate students using `geom_density_ridges()` from the **ggridges** package. Experiment with the `rel_min_height = ` parameter. Compare what you observe in the ridgeline plots to the boxplots from part b).
+
+### 4. Undergrad vs. Graduate
+
+Data: Same as Q3 but without the filters. (That is, keep all rows and columns.)
+
+a) Create density curves on the same set of axes for all three tuition types, using `geom_density()`. What do you observe?
+
+b) Redraw the graph from part a), now faceting on `level_of_study`. What new information do you observe?
+
+c) Redraw your graph from part b) this time starting with `level_of_study` and then faceting on `tuition_type`. Does this graph improve readability? Why or why not?
+
+### 5. Room and Board
+
+In this question we will evaluate whether room and board charges are normally distributed or not. 
+
+Data: Same as Q2
+
+a) Draw a histogram showing the distribution of the room and board expenses for undergraduate students living on campus. Describe the shape of the distribution.
+
+b) Switch to a density histogram. Use `geom_density()` to add a density curve and `geom_function()` to add a normal curve to your plot with the same mean and standard deviation as the data. What is the different between these two functions? What do you observe in your graph? (Note: it's your choice whether to include a legend to indicate which curve is which. If you don't, add a caption indicating which curve is which by color.)
+
+c) Draw a quantile-quantile (QQ) plot to test for normality for the same data (use `geom_qq()` and `geom_qq_line()`). Interpret the results and compare them to part b).
+
+d) Use a statistical test (your choice) to evaluate whether we can reject the assumption of normality of room and board expenses. Interpret your results.
+
+d) Simulate data from a normal distribution with the same number of values, mean and standard deviation as the room and board data. Use a method of your choice to compare the distributions. What insight do you gain?
+
