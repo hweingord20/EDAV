@@ -1,5 +1,6 @@
 ---
 title: "EDAV Problem Set 1 Fall 2024"
+author: Hailey Weingord (hnw2108)
 execute:
   echo: true
 format:
